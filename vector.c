@@ -8,6 +8,17 @@
     I'll try to match all as many of the functions listed on cppreference but I'm starting with .at() and .push_back()
     Obviously everything, and especially initiallization is going to look diferent, but hopefully these will be usable and generic
     Is it safe? Wouldn't assume so no. Much the opposite actually. Oh well. Expect updates.
+
+    listed public member functions of std::vector on cppreference yet to be implimented:
+        - assign
+        - assign_range
+        - insert
+        - insert_range
+        - erase
+        - append_range
+    only includes functions that are
+        a) non trivial (for example, data and capacity can be accessed directly)
+        b) reasonably doable (so probably not iterators)
 */
 
 #include <stdio.h>
@@ -72,6 +83,95 @@ int push_back(vector* v, void* data){ //... neither will this
     } //I beleive this is what cppreference refered to as *trivially copyable*
     (v->size)++;
     return 1;
+}
+
+void* front(vector v){
+    return v.data;
+}
+
+void* back(vector v){
+    if(v.data_size == 1){ //null-terminated string
+        return at(v, v.size - 2);
+    }
+    return at(v, v.size - 1);
+}
+
+int empty(vector v){
+    return !(v.size);
+}
+
+void clear(vector* v){
+    v->size = 0;
+}
+
+//returns 0 on failure
+int reserve(vector* v, int new_cap){
+    if(v->capacity < new_cap){
+        void* new_data = realloc(v->data, (v->data_size)*new_cap);
+        if(new_data == NULL){
+            return 0;
+        }
+        v->data = new_data;
+        v->capacity = new_cap;
+    }
+    return 1;
+}
+
+//returns 0 on failure
+int shrink_to_fit(vector* v){
+    void* new_data = realloc(v->data, (v->data_size)*(v->size));
+    if(new_data == NULL){
+        return 0;
+    }
+    v->data = new_data;
+    v->capacity = v->size;
+    return 1;
+}
+
+void swap(vector* left, vector* right){
+    vector temp = *left;
+    *left = *right;
+    *right = temp;
+}
+
+void* pop_back(vector* v){
+    if(v->data_size == 1){ //again, null-terminated so it behaves differently
+        ((char*)v->data)[v->size] = *((char*)at(*v, v->size - 1));
+        (v->size)--;
+        ((char*)v->data)[v->size] = '\0';
+        return at(*v, v->size + 1);
+    }
+    (v->size)--;
+    return at(*v, v->size);
+}
+
+//could fail due to bad alloc
+//note this is analogous to definition (2) on cppreference: 
+//void resize(size_type count, const value_type& value);
+int resize(vector* v, int new_size, void* fill){
+    if(new_size <= v->size){
+        v->size = new_size;
+        return 1;
+    }else if(reserve(v, new_size)){
+        char* start = at(*v, v->size);
+        for(int i = 0; i < new_size - v->size; i++){
+            for(int j = 0; j < v->data_size; j++){
+                start[i*(v->data_size) + j] = ((char*)fill)[j];
+            }
+        }
+        v->size = new_size;
+        return 1;
+    }
+    //getting to this line implies new_size > v->capacity >= v->size
+    //the most reasonable thing to do here is fill in as much as possible
+    char* start = at(*v, v->size);
+    for(int i = 0; i < v->capacity - v->size; i++){
+        for(int j = 0; j < v->data_size; j++){
+            start[i*(v->data_size) + j] = ((char*)fill)[j];
+        }
+    }
+    v->size = v->capacity;
+    return 0;
 }
 
 int main(){ //testing 
