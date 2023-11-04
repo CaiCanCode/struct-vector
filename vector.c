@@ -5,31 +5,14 @@
     An aproximation of the c++ vector class
     First started working on this as part of a linear algebra calculator (coming soon!) as a good way to read data 
     (because I needed strings that could resize themselves and realized a more general container was useful)
-    I'll try to match all as many of the functions listed on cppreference but I'm starting with .at() and .push_back()
     Obviously everything, and especially initiallization is going to look diferent, but hopefully these will be usable and generic
     Is it safe? Wouldn't assume so no. Much the opposite actually. Oh well. Expect updates.
-
-    listed public member functions of std::vector on cppreference yet to be implimented:
-        - assign
-        - assign_range
-        - insert
-        - insert_range
-        - erase
-        - append_range
-    only includes functions that are
-        a) non trivial (for example, data and capacity can be accessed directly)
-        b) reasonably doable (so probably not iterators)
 */
 
 #include <stdio.h>
 #include <stdlib.h>
+#include "vector.h"
 
-typedef struct vector {
-    void* data; //this will not be a disaster...
-    int size; //next open slot (or null terminator in strings)
-    int capacity;
-    int data_size; //for "typing"
-} vector;
 //to demonstrate that vectors work with structs
 typedef struct example {
     int int_num;
@@ -40,11 +23,17 @@ typedef struct example {
 } example;
 
 //free data (very important)
-void free_vector(vector v){
-    free(v.data);
+void free_vector(vector* v){
+    free(v->data);
+    v->data = NULL;
+    v->capacity = 0;
+    v->size = 0;
 }
 
 void* at(vector v, int idx){ //what else could it return
+    if(idx >= v.size){
+        return NULL;
+    }
     return ((char*)v.data) + idx*v.data_size;
 }
 
@@ -77,7 +66,7 @@ int push_back(vector* v, void* data){ //... neither will this
         v->data = new_data;
         v->capacity = 2*(v->capacity) + 1;
     }
-    char* end = at(*v, v->size); //byte by byte...
+    char* end = at(*v, v->size - 1) + v->data_size; //byte by byte...
     for(int i = 0; i < v->data_size; i++){
         end[i] = ((char*)data)[i];
     } //I beleive this is what cppreference refered to as *trivially copyable*
@@ -90,6 +79,9 @@ void* front(vector v){
 }
 
 void* back(vector v){
+    if(!v.size){
+        return NULL;
+    }
     if(v.data_size == 1){ //null-terminated string
         return at(v, v.size - 2);
     }
@@ -149,10 +141,13 @@ void* pop_back(vector* v){
 //note this is analogous to definition (2) on cppreference: 
 //void resize(size_type count, const value_type& value);
 int resize(vector* v, int new_size, void* fill){
-    if(new_size <= v->size){
+    if(new_size < v->size){
         v->size = new_size;
+        if(v->data_size == 1){
+            ((char*)v->data)[v->size] = '\0';
+        }
         return 1;
-    }else if(reserve(v, new_size)){
+    }else if(reserve(v, new_size + 1)){
         char* start = at(*v, v->size);
         for(int i = 0; i < new_size - v->size; i++){
             for(int j = 0; j < v->data_size; j++){
@@ -160,9 +155,12 @@ int resize(vector* v, int new_size, void* fill){
             }
         }
         v->size = new_size;
+        if(v->data_size == 1){
+            ((char*)v->data)[v->size] = '\0';
+        }
         return 1;
     }
-    //getting to this line implies new_size > v->capacity >= v->size
+    //getting to this line implies new_size >= v->capacity >= v->size
     //the most reasonable thing to do here is fill in as much as possible
     char* start = at(*v, v->size);
     for(int i = 0; i < v->capacity - v->size; i++){
@@ -171,7 +169,11 @@ int resize(vector* v, int new_size, void* fill){
         }
     }
     v->size = v->capacity;
-    return 0;
+    if(v->data_size == 1){
+        (v->size)--;
+        ((char*)v->data)[v->size] = '\0';
+    }
+    return new_size == v->size;
 }
 
 int main(){ //testing 
@@ -203,8 +205,7 @@ int main(){ //testing
     push_back(&vec_struct, &ex2);
 
     //test for strings
-    printf("str contains [ %s ]\nsize is %d\ncapacity is %d\n", str.data, str.size, str.capacity);
-
+    printf("str contains [ %s ]\nsize is %d\ncapacity is %d\n", (char*)str.data, str.size, str.capacity);
     //test with double
     printf("vec_double contains [ ");
     for(int i = 0; i < vec_double.size; i++){
@@ -226,9 +227,9 @@ int main(){ //testing
     printf("size is %d\ncapacity is %d\n", vec_struct.size, vec_struct.capacity);
 
     //free data
-    free_vector(str);
-    free_vector(vec_double);
-    free_vector(vec_struct);
+    free_vector(&str);
+    free_vector(&vec_double);
+    free_vector(&vec_struct);
 
     return 0;
 
