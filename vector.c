@@ -31,7 +31,7 @@ void free_vector(vector* v){
 }
 
 void* at(vector v, int idx){ //what else could it return
-    if(idx >= v.size){
+    if(idx < 0 || idx >= v.size){
         return NULL;
     }
     return ((char*)v.data) + idx*v.data_size;
@@ -66,7 +66,7 @@ int push_back(vector* v, void* data){ //... neither will this
         v->data = new_data;
         v->capacity = 2*(v->capacity) + 1;
     }
-    char* end = at(*v, v->size - 1) + v->data_size; //byte by byte...
+    char* end = v->size ? at(*v, v->size - 1) + v->data_size : v->data; //byte by byte...
     for(int i = 0; i < v->data_size; i++){
         end[i] = ((char*)data)[i];
     } //I beleive this is what cppreference refered to as *trivially copyable*
